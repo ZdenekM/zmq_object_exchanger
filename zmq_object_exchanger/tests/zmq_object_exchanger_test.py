@@ -10,6 +10,47 @@ class testClass():
 
 class testObjectExchanger(unittest.TestCase):
 
+  def test_shared_key(self):
+    """Tests usage of shared key for better security."""
+  
+    key = "myHyperUltraSecureKey"
+    
+    r1 = zmqObjectExchanger("robot1", "127.0.0.1", 1234, shared_key=key)
+    r2 = zmqObjectExchanger("robot2", "127.0.0.1", 4321, shared_key=key)
+    r1.add_remote("robot2", "127.0.0.1", 4321)
+    time.sleep(0.1)
+    
+    r2.send_msg("secure_topic", "confident message")
+    time.sleep(0.1)
+    
+    r1msgs = r1.get_msgs()
+    
+    r1.stop_listening()
+    r2.stop_listening()
+    
+    self.assertEqual(len(r1msgs), 1)
+    
+  def test_shared_key_on_one_side(self):
+    """Tests usage of shared key where keys are different."""
+  
+    key = "myHyperUltraSecureKey"
+    mkey = "myWrongHyperUltraSecureKey"
+    
+    r1 = zmqObjectExchanger("robot1", "127.0.0.1", 1234, shared_key=key)
+    r2 = zmqObjectExchanger("robot2", "127.0.0.1", 4321, shared_key=mkey)
+    r1.add_remote("robot2", "127.0.0.1", 4321)
+    time.sleep(0.1)
+    
+    r2.send_msg("secure_topic", "confident message")
+    time.sleep(0.1)
+    
+    r1msgs = r1.get_msgs()
+    
+    r1.stop_listening()
+    r2.stop_listening()
+    
+    self.assertEqual(len(r1msgs), 0)
+  
 
   def test_object_integrity(self):
     """This tests if sended objects is received correctly."""

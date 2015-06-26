@@ -5,6 +5,8 @@ import cPickle as pickle
 import Queue
 import time
 import sys
+import hmac
+import hashlib
 
 class Thread(threading.Thread):
   """
@@ -38,12 +40,14 @@ class zmqObjectInterface(Thread):
 
   # TODO request - response (services)
 
-  def __init__(self, name, ip, port, topics):
+  def __init__(self, name, ip, port, topics, shared_key = ""):
   
     Thread.__init__(self, name="zmqObjectInterface: " + name)
   
     self.name = name
     self.topics = topics
+    
+    self.shared_key = shared_key
   
     self.context = zmq.Context()
     self.sub_queue = Queue.PriorityQueue()
@@ -77,8 +81,19 @@ class zmqObjectInterface(Thread):
   
     while not self.is_shutdown():
     
-      [topic, z] = self.sub_socket.recv_multipart() # TODO timeout
+      [topic, z, digest] = self.sub_socket.recv_multipart() # TODO timeout
+
       p = zlib.decompress(z)
+
+      if self.shared_key != "":
+          
+        new_digest = hmac.new(self.shared_key, p, hashlib.sha1).hexdigest()
+        
+        if digest != new_digest:
+        
+          self.log("Integrity check failed")
+          continue
+      
       msg = pickle.loads(p)
       
       try:
@@ -89,7 +104,7 @@ class zmqObjectInterface(Thread):
           self.log("Received message from " + msg["name"] + " (priority " + str(msg["priority"]) + ")")
       
           # callback?
-        
+          
           self.sub_queue.put((msg["priority"], msg))
           
       except KeyError:
@@ -131,11 +146,13 @@ class zmqObjectExchanger(Thread):
   This class acts as a publisher and at the same time it can handle incoming data from one or more sources.
   """
 
-  def __init__(self, name, ip, port):
+  def __init__(self, name, ip, port, shared_key = ""):
   
     Thread.__init__(self, name="zmqObjectExchanger: " + name) 
   
     self.name = name
+    
+    self.shared_key = shared_key
   
     self.context = zmq.Context()
 
@@ -176,14 +193,19 @@ class zmqObjectExchanger(Thread):
       p = pickle.dumps(msg)
       z = zlib.compress(p)
       
-      #self.pub_socket.send((msg["topic"], z))
-      self.pub_socket.send_multipart([msg["topic"], z])
+      digest = ""
+      
+      if self.shared_key != "":
+      
+        digest = hmac.new(self.shared_key, p, hashlib.sha1).hexdigest()
+      
+      self.pub_socket.send_multipart([msg["topic"], z, digest])
       
   
   def add_remote(self, name, ip, port, topics=[]):
     """Add (remote) data source we want to listen to."""
   
-    robot = zmqObjectInterface(name, ip, port, topics)
+    robot = zmqObjectInterface(name, ip, port, topics, self.shared_key)
     self.subs["name"] = robot
   
   def get_msgs(self, name=""):
