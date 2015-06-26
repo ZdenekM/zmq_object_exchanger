@@ -1,4 +1,7 @@
 # zmq_object_exchanger
+
+[![Build Status](https://travis-ci.org/ZdenekM/zmq_object_exchanger.svg?branch=master)](https://travis-ci.org/ZdenekM/zmq_object_exchanger)
+
 This stuff helps you to send and receive arbitrary Python objects over network - it uses pyzmq to do so. Python objects are serialized, compressed and sent over network. There is PriorityQueue on both ends so messages/objects with higher priority (lower integer number) are sent/received first. Messages are sent on '''topics''' and each receiver can filter incoming data based on topics names.
 
 Sending dictionary over network (well, let's do it on localhost for simplicity) is such easy:
