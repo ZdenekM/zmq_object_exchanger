@@ -22,6 +22,17 @@ print(rd["foo"]) # will print 'bar'
 receiver.stop_listening() # cleanup
 sender.stop_listening()
 ```
+
+Please note that this is not really secure as somebody might send you some malicious code. If you trust the other party and your network it's completely ok. If your network is not completely safe, please use cryptographic signature and verification. You just need to add one more parameter - your shared key.
+
+```python
+key = "myHyperUltraSecureKey"
+sender = zmqObjectExchanger("sender", "machine1", 1234, shared_key=key) 
+receiver = zmqObjectExchanger("receiver", "machine2", 4321, shared_key=key)
+
+```
+And that's all - rest is same as in the previous example. The class will check for you if delivered messages are fine (not modified).
+
 ## Future plans
 
 * Support for request / response.
