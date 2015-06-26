@@ -53,7 +53,7 @@ class testObjectExchanger(unittest.TestCase):
   
 
   def test_object_integrity(self):
-    """This tests if sended objects is received correctly."""
+    """This tests if sent object is received correctly."""
   
         
     r1 = zmqObjectExchanger("robot1", "127.0.0.1", 1234)
