@@ -26,5 +26,6 @@ sender.stop_listening()
 
 * Support for request / response.
 * Support for callbacks.
+* Secure transfer over SSH.
 * Better tests.
 * More examples including usage with ROS.
