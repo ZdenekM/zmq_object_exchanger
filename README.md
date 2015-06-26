@@ -22,3 +22,9 @@ print(rd["foo"]) # will print 'bar'
 receiver.stop_listening() # cleanup
 sender.stop_listening()
 ```
+## Future plans
+
+* Support for request / response.
+* Support for callbacks.
+* Better tests.
+* More examples including usage with ROS.
