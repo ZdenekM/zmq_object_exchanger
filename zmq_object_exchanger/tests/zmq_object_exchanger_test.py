@@ -73,10 +73,43 @@ class testObjectExchanger(unittest.TestCase):
 
         r1.stop_listening()
         r2.stop_listening()
+        
+        self.assertEqual(len(r1msgs), 1)
 
         (prio, robj) = r1msgs[0]
 
         self.assertEqual(robj["data"].method(), "testClass")
+        
+    def test_getmsgs_filter(self):
+        """This tests if we can read messages from only one source correctly."""
+
+        r1 = zmqObjectExchanger("robot1", "127.0.0.1", 1234)
+        r2 = zmqObjectExchanger("robot2", "127.0.0.1", 4321)
+        r3 = zmqObjectExchanger("robot3", "127.0.0.1", 4356)
+
+        r1.add_remote("robot2", "127.0.0.1", 4321)
+        r1.add_remote("robot3", "127.0.0.1", 4356)
+
+        time.sleep(0.1)
+
+        data = [1,2,3, "Lorem Ipsum"]
+
+        r2.send_msg("some_topic", data)
+        r3.send_msg("another_topic", data)
+
+        time.sleep(0.1)
+
+        r1msgs = r1.get_msgs("robot3")
+
+        r1.stop_listening()
+        r2.stop_listening()
+        r3.stop_listening()
+        
+        self.assertEqual(len(r1msgs), 1)
+
+        (prio, robj) = r1msgs[0]
+
+        self.assertEqual(robj["name"], "robot3")
 
     def test_topic_filtering(self):
         """Tests if topic filtering works properly using number of received messages."""

@@ -33,6 +33,8 @@ class Thread(threading.Thread):
                 return False
         return data == 'shutdown'
 
+class zmqObjectExchangerException(Exception):
+    pass
 
 class zmqObjectInterface(Thread):
     """
@@ -160,7 +162,14 @@ class zmqObjectExchanger(Thread):
         self.pub_socket = self.context.socket(zmq.PUB)
         self.socket_str = "tcp://*" + ":" + str(port)
         self.log("Going to publish on: " + self.socket_str)
-        self.pub_socket.bind(self.socket_str)
+        
+        try:
+        
+            self.pub_socket.bind(self.socket_str)
+            
+        except zmq.ZMQError as e:
+        
+            raise zmqObjectExchangerException("bind error")
 
         self.subs = {}
 
@@ -206,14 +215,12 @@ class zmqObjectExchanger(Thread):
         """Add (remote) data source we want to listen to."""
 
         robot = zmqObjectInterface(name, ip, port, topics, self.shared_key)
-        self.subs["name"] = robot
+        self.subs[name] = robot
 
     def get_msgs(self, name=""):
         """Get all received messages from specific source or from all of them."""
 
         msgs = []
-
-        # TODO test if name exists - raise exception
 
         if name == "":
 
@@ -224,8 +231,14 @@ class zmqObjectExchanger(Thread):
 
         else:
 
-            msg = self.subs[name].get_msgs()
-            msgs.extend(msg)
+            try:
+
+                msg = self.subs[name].get_msgs()
+                msgs.extend(msg)
+                
+            except KeyError:
+            
+                raise zmqObjectExchangerException("not known name")
 
         return msgs
 
