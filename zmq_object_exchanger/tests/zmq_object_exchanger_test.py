@@ -12,6 +12,33 @@ class testClass():
 
 class testObjectExchanger(unittest.TestCase):
 
+    def setUp(self):
+    
+        self.callback_called = False
+
+    def callback(self):
+    
+        self.callback_called = True
+
+    def test_callback(self):
+        """Tests if callback is called properly."""
+    
+        r1 = zmqObjectExchanger("robot1", "127.0.0.1", 1234, callback=self.callback)
+        r2 = zmqObjectExchanger("robot2", "127.0.0.1", 4321)
+        r1.add_remote("robot2", "127.0.0.1", 4321)
+        time.sleep(0.1)
+        
+        r2.send_msg("some_topic", "some message")
+        time.sleep(0.1)
+        
+        r1.spinOnce()
+        
+        r1.stop_listening()
+        r2.stop_listening()
+        
+        self.assertEqual(self.callback_called, True)
+        
+
     def test_shared_key(self):
         """Tests usage of shared key for better security."""
 

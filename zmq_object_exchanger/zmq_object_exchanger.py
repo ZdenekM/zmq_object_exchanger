@@ -43,12 +43,13 @@ class zmqObjectInterface(Thread):
 
     # TODO request - response (services)
 
-    def __init__(self, name, ip, port, topics, shared_key=""):
+    def __init__(self, parent, name, ip, port, topics, shared_key=""):
 
         Thread.__init__(self, name="zmqObjectInterface: " + name)
 
         self.name = name
         self.topics = topics
+        self.parent = parent
 
         self.shared_key = shared_key
 
@@ -115,6 +116,10 @@ class zmqObjectInterface(Thread):
             msg["received"] = time.time()
 
             self.sub_queue.put((msg["prio"], msg))
+            
+            if self.parent.callback is not None:
+            
+                self.parent.callback_queue.put(self.parent.callback)
 
         self.log("Stopping listening for messages from " + self.name)
 
@@ -152,7 +157,7 @@ class zmqObjectExchanger(Thread):
     This class acts as a publisher and at the same time it can handle incoming data from one or more sources.
     """
 
-    def __init__(self, name, ip, port, shared_key=""):
+    def __init__(self, name, ip, port, shared_key="", callback = None):
 
         Thread.__init__(self, name="zmqObjectExchanger: " + name)
 
@@ -161,6 +166,9 @@ class zmqObjectExchanger(Thread):
         self.shared_key = shared_key
 
         self.context = zmq.Context()
+        
+        self.callback = callback
+        self.callback_queue = Queue.Queue()
 
         self.pub_socket = self.context.socket(zmq.PUB)
         self.socket_str = "tcp://*" + ":" + str(port)
@@ -179,6 +187,21 @@ class zmqObjectExchanger(Thread):
         self.pub_queue = Queue.PriorityQueue()
 
         self.start()
+    
+    def spinOnce(self):
+    
+        try:
+            callback = self.callback_queue.get(False)
+        except Queue.Empty:
+            return
+        callback()
+        
+    def spin(self):
+    
+        while True:
+            
+            callback = self.callback_queue.get()
+            callback()
 
     def log(self, msg):
 
@@ -219,7 +242,7 @@ class zmqObjectExchanger(Thread):
     def add_remote(self, name, ip, port, topics=[]):
         """Add (remote) data source we want to listen to."""
 
-        robot = zmqObjectInterface(name, ip, port, topics, self.shared_key)
+        robot = zmqObjectInterface(self, name, ip, port, topics, self.shared_key)
         self.subs[name] = robot
 
     def get_msgs(self, name=""):
