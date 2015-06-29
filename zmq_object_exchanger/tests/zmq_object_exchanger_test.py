@@ -76,9 +76,7 @@ class testObjectExchanger(unittest.TestCase):
         
         self.assertEqual(len(r1msgs), 1)
 
-        (prio, robj) = r1msgs[0]
-
-        self.assertEqual(robj["data"].method(), "testClass")
+        self.assertEqual(r1msgs[0]["data"].method(), "testClass")
         
     def test_getmsgs_filter(self):
         """This tests if we can read messages from only one source correctly."""
@@ -92,7 +90,7 @@ class testObjectExchanger(unittest.TestCase):
 
         time.sleep(0.1)
 
-        data = [1,2,3, "Lorem Ipsum"]
+        data = [1, 2, 3, "Lorem Ipsum"]
 
         r2.send_msg("some_topic", data)
         r3.send_msg("another_topic", data)
@@ -107,9 +105,7 @@ class testObjectExchanger(unittest.TestCase):
         
         self.assertEqual(len(r1msgs), 1)
 
-        (prio, robj) = r1msgs[0]
-
-        self.assertEqual(robj["name"], "robot3")
+        self.assertEqual(r1msgs[0]["name"], "robot3")
 
     def test_topic_filtering(self):
         """Tests if topic filtering works properly using number of received messages."""

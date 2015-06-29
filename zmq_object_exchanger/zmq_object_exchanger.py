@@ -6,7 +6,7 @@ import Queue
 import sys
 import hmac
 import hashlib
-
+import time
 
 class Thread(threading.Thread):
     """
@@ -59,13 +59,15 @@ class zmqObjectInterface(Thread):
         self.socket_str = "tcp://" + ip + ":" + str(port)
         self.log("Subscribing to: " + self.socket_str)
         self.sub_socket.connect(self.socket_str)
-        if len(topics) == 0:
-            self.sub_socket.setsockopt(zmq.SUBSCRIBE, "")
-            self.log("All topics")
-        else:
-            for topic in self.topics:
-                self.sub_socket.setsockopt(zmq.SUBSCRIBE, topic)
-                self.log("Topic: " + topic)
+        
+        # ZMQ does topic filtering on subscriber side so we can do it on our own
+        # if len(topics) == 0:
+        self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, u"")
+        #     self.log("All topics")
+        # else:
+        #     for topic in self.topics:
+        #         self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, unicode(topic))
+        #         self.log("Topic: " + topic)
 
         self.start()
 
@@ -80,11 +82,19 @@ class zmqObjectInterface(Thread):
 
     def run(self):
 
-        self.log("Listening for messages")
+        self.log("Listening to messages")
 
         while not self.is_shutdown():
 
-            [topic, z, digest] = self.sub_socket.recv_multipart()  # TODO timeout
+            [topic, name, z, digest] = self.sub_socket.recv_multipart()  # TODO timeout
+            
+            if (name != self.name):
+            
+                continue
+                
+            if len(self.topics) != 0 and topic not in self.topics:
+            
+                continue
 
             p = zlib.decompress(z)
 
@@ -98,21 +108,13 @@ class zmqObjectInterface(Thread):
                     continue
 
             msg = pickle.loads(p)
+            self.log("Received message from " + name + " (priority " + str(msg["prio"]) + ")")
 
-            try:
+            msg["topic"] = topic
+            msg["name"] = name
+            msg["received"] = time.time()
 
-                # TODO filtering topics using zmq setsockopt doesn't work (so we need to filter here) - why???
-                if (msg["name"] == self.name and (topic in self.topics or len(self.topics) == 0)):
-
-                    self.log("Received message from " + msg["name"] + " (priority " + str(msg["priority"]) + ")")
-
-                    # callback?
-
-                    self.sub_queue.put((msg["priority"], msg))
-
-            except KeyError:
-
-                self.log("Malformed message.")
+            self.sub_queue.put((msg["prio"], msg))
 
         self.log("Stopping listening for messages from " + self.name)
 
@@ -135,7 +137,8 @@ class zmqObjectInterface(Thread):
 
         try:
 
-            return self.sub_queue.get(block, timeout)
+            (prio, msg) = self.sub_queue.get(block, timeout)
+            return msg
 
         except Queue.Empty:
 
@@ -167,7 +170,7 @@ class zmqObjectExchanger(Thread):
         
             self.pub_socket.bind(self.socket_str)
             
-        except zmq.ZMQError as e:
+        except zmq.ZMQError:
         
             raise zmqObjectExchangerException("bind error")
 
@@ -196,9 +199,11 @@ class zmqObjectExchanger(Thread):
 
         while not self.is_shutdown():
 
-            (prio, msg) = self.pub_queue.get()
+            (prio, topic, msg) = self.pub_queue.get()
 
             self.log("Publishing msg with priority: " + str(prio))
+
+            msg["prio"] = prio
 
             p = pickle.dumps(msg)
             z = zlib.compress(p)
@@ -209,7 +214,7 @@ class zmqObjectExchanger(Thread):
 
                 digest = hmac.new(self.shared_key, p, hashlib.sha1).hexdigest()
 
-            self.pub_socket.send_multipart([msg["topic"], z, digest])
+            self.pub_socket.send_multipart([topic, self.name, z, digest])
 
     def add_remote(self, name, ip, port, topics=[]):
         """Add (remote) data source we want to listen to."""
@@ -245,14 +250,12 @@ class zmqObjectExchanger(Thread):
     def send_msg(self, topic, data, prio=10):
         """Send object to specified topic. Messages with lower priority will be send first."""
 
+        # there might be more fileds in future (timestamp?) so let's use dictionary
         tmp = {}
-
-        tmp["topic"] = topic
-        tmp["name"] = self.name
         tmp["data"] = data
-        tmp["priority"] = prio
+        tmp["sent"] = time.time()
 
-        self.pub_queue.put((prio, tmp))
+        self.pub_queue.put((prio, topic, tmp))
 
 if __name__ == "__main__":
 
