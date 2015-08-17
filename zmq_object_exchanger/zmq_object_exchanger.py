@@ -43,7 +43,7 @@ class zmqObjectInterface(Thread):
 
     # TODO request - response (services)
 
-    def __init__(self, parent, name, ip, port, topics, shared_key=""):
+    def __init__(self, parent, name, ip, port, topics, shared_key="", logging=False):
 
         Thread.__init__(self, name="zmqObjectInterface: " + name)
 
@@ -52,6 +52,8 @@ class zmqObjectInterface(Thread):
         self.parent = parent
 
         self.shared_key = shared_key
+        
+        self.logging = logging # add more options (to file, etc.)
 
         self.context = zmq.Context()
         self.sub_queue = Queue.PriorityQueue()
@@ -77,9 +79,11 @@ class zmqObjectInterface(Thread):
         self.sub_socket.disconnect(self.socket_str)
 
     def log(self, msg):
-
-        print("[" + self.name + "_sub] " + msg)
-        sys.stdout.flush()
+        
+        if self.logging:
+        
+            print("[" + self.name + "_sub] " + msg)
+            sys.stdout.flush()
 
     def run(self):
 
@@ -157,7 +161,7 @@ class zmqObjectExchanger(Thread):
     This class acts as a publisher and at the same time it can handle incoming data from one or more sources.
     """
 
-    def __init__(self, name, ip, port, shared_key="", callback = None):
+    def __init__(self, name, ip, port, shared_key="", callback = None, logging=False):
 
         Thread.__init__(self, name="zmqObjectExchanger: " + name)
 
@@ -169,6 +173,8 @@ class zmqObjectExchanger(Thread):
         
         self.callback = callback
         self.callback_queue = Queue.Queue()
+        
+        self.logging = logging
 
         self.pub_socket = self.context.socket(zmq.PUB)
         self.socket_str = "tcp://*" + ":" + str(port)
@@ -204,9 +210,11 @@ class zmqObjectExchanger(Thread):
             callback()
 
     def log(self, msg):
+    
+        if self.logging:
 
-        print("[" + self.name + "] " + msg)
-        sys.stdout.flush()
+            print("[" + self.name + "] " + msg)
+            sys.stdout.flush()
 
     def stop_listening(self):
 
@@ -242,7 +250,7 @@ class zmqObjectExchanger(Thread):
     def add_remote(self, name, ip, port, topics=[]):
         """Add (remote) data source we want to listen to."""
 
-        robot = zmqObjectInterface(self, name, ip, port, topics, self.shared_key)
+        robot = zmqObjectInterface(self, name, ip, port, topics, self.shared_key, logging = self.logging)
         self.subs[name] = robot
 
     def get_msgs(self, name=""):
